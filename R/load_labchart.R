@@ -28,7 +28,7 @@ load_labchart = function(file, col_names = NULL) {
       read_delim(file, "\t", skip=9, col_names=col_names,
     col_types = cols())
   )
-
+  data$Chamber=as.numeric(as.character(data$Chamber))
   # clean the data
   data %<>% clean_artifacts()
 

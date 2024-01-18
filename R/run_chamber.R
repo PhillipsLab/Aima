@@ -5,7 +5,7 @@
 #' @param data a data frame output from \link{load_labchart} to be analyzed.
 #' @param rate a numeric, the sampling rate of the data. Note if the data was
 #'   downsampled out of \code{LabChart} the corrected sampling rate should be
-#'   specified in frames per second. Default is 1000.
+#'   specified in frames per second. Default is 10,000
 #' @param normalize_time a logical, if \code{TRUE} data will be interpolated
 #'   to one datapoint per second using an internal function \link{match_interp}.
 #'   If \code{FALSE} the existing sampling rate will be retained. Default is
@@ -15,18 +15,18 @@
 #'   the onset of the chamber. Default is 60 seconds.
 #' @param trial_length a numeric, the length of time in seconds the user
 #'   would like to specify that the trial proceeded for following the onset
-#'   of the chamber. Default is 120 seconds.
+#'   of the chamber. Default is 60 seconds.
 #' @param n_steps a numeric, the number of chamber steps used in this
-#'   lower-body negative pressure trial. Default is 2 steps.
+#'   lower-body negative pressure trial. Default is 1 steps.
 #' @param step_length a numeric, the length of time in seconds that each
 #'   step was sustained for prior to proceeding to the subsequent step or the
 #'   trial finishing. Default is 60 seconds.
 #' @param chamber_col a character, the name of the column containing the analog
 #'   data of the chamber pressure. This will be used to identify the start
 #'   and stop points of the chamber assessment. Default is 'Chamber'.
-#' @param initial_chamber_pressure a numeric, the intial pressure specified
+#' @param initial_chamber_pressure a numeric, the initial pressure specified
 #'   for the lower-body negative pressure chamber. This value will be used
-#'   to annotate the meta data. Default is 10 mmHg.
+#'   to annotate the meta data. Default is 0 mmHg.
 #' @param chamber_step a numeric, the size of pressure change between each
 #'   step of the chamber during the trial. Default is 5 mmHg.
 #' @return a data frame containing the lower-body negative pressure data with
@@ -41,16 +41,16 @@
 
 run_chamber = function(
     data,
-    rate = 1000,
+    rate = 10000,
     normalize_time = T,
     # trial length parameters
     baseline_length = 60,
-    trial_length = 120,
-    n_steps = 2,
+    trial_length = 60,
+    n_steps = 1,
     step_length = 60,
     # chamber parameters
     chamber_col = 'Chamber',
-    initial_chamber_pressure = 10,
+    initial_chamber_pressure = 0,
     chamber_step = 5
   ) {
 
@@ -81,7 +81,7 @@ run_chamber = function(
   # since we are processing a chamber trial. Auto detect the first time
   # the chamber turns on
   detect_threshold = initial_chamber_pressure - 2
-  chamber_start = which(data[[chamber_col]] > detect_threshold)[1]
+  chamber_start = which(data[[chamber_col]] < detect_threshold)[1]
   baseline_start = chamber_start - (rate * baseline_length)
   trial_end = chamber_start + (rate * trial_length)
 
@@ -102,12 +102,12 @@ run_chamber = function(
   # However, users can specify the length of time and title of their
   # procedure. These are defined based on the arguments n_steps and step_length
   if (normalize_time) {
+      ) %>%
     data %<>%
       mutate(step = cut(time,
                              breaks = c(0, baseline_length,
                                         baseline_length + (step_length *
                                                              seq_len(n_steps))))
-      ) %>%
       # re-code these
       mutate(step = as.character(factor(step, labels = c(
         'baseline',
@@ -132,9 +132,9 @@ run_chamber = function(
   # according to the arguments: 'initial_chamber_pressure' and 'chamber_step'.
   chamber_pressure_map = data.frame(
     step = c('baseline', paste("Step", seq_len(n_steps))),
-    chamber_pressure = c(0, initial_chamber_pressure,
+    chamber_pressure = c(initial_chamber_pressure,
                          (initial_chamber_pressure +
-                            (chamber_step * seq_len(n_steps-1))))
+                            (chamber_step * seq_len(n_steps))))
                           )
   data %<>% left_join(chamber_pressure_map, by = 'step')
 
